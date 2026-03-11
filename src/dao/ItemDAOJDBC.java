@@ -98,21 +98,19 @@ public class ItemDAOJDBC implements ItemDAO {
 
     @Override
     public List<Item> listar() {
+        List<Item> itemList = new ArrayList<Item>();
         StringBuilder sqlBuilder = new StringBuilder();
         sqlBuilder
                 .append("SELECT id, nome, categoria, quantidade, validade ")
                 .append("FROM itens");
         
         String select = sqlBuilder.toString();
-
-        List<Item> itemList = new ArrayList<Item>();
-
-        try {       
-            rset = DAOGenerico.executarConsulta(select);
-
+        
+        try (Connection conexao = DAOGenerico.getConexao();
+            PreparedStatement sql = conexao.prepareStatement(select);
+            ResultSet rset = sql.executeQuery()) {
 
             while (rset.next()) {
-
                 Item item = new Item();
                 item.setId(rset.getInt("id"));
                 item.setNome(rset.getString("nome"));
@@ -126,13 +124,12 @@ public class ItemDAOJDBC implements ItemDAO {
             }
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            fecharConexao();
         }
 
         return itemList;
     }
 
+    
     //lista por id
     @Override
     public Item listar(int id) {

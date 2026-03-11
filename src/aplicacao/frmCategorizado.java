@@ -4,87 +4,101 @@
  */
 package aplicacao;
 
-//package aplicacao;
 import conexao.ConexaoMySQL;
 import dao.ItemDAO;
 import dao.DAOFactory;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.sql.Connection;
-import java.sql.SQLException;
 import javax.swing.*;
-//import javax.swing.JOptionPane;
-//import javax.swing.ListSelectionModel;
 import javax.swing.table.DefaultTableModel;
 import modelo.Item;
-import javax.swing.table.TableCellRenderer;
-//import javax.swing.JLabel;
-//import javax.swing.JTable;
-//import javax.swing.SwingConstants;
-import javax.swing.table.DefaultTableCellRenderer;
-import java.awt.Component;
+import java.sql.Connection;
+import java.awt.event.ItemEvent;
 import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import modelo.Categoria;
 
+/**
+ *
+ * @author Y
+ */
         
-    public class frmPrincipal extends javax.swing.JFrame {
-
+public class frmCategorizado extends javax.swing.JFrame {
+    
     Connection conexao = null;
     ItemDAO itemDAO = DAOFactory.criarItemDAO();
     private DefaultTableModel modelo = null;
-
-    public frmPrincipal() {
-        initComponents();
-        tblItem.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        modelo = (DefaultTableModel) tblItem.getModel();
-
+    private Categoria categoriaFiltro;
+    
+    public frmCategorizado(){
+    }
+    public frmCategorizado(Categoria categoriaSelec) {
         try {
             conexao = ConexaoMySQL.getConexao();
         } catch (Exception ex) {
             lblMensagem.setText("Sem conexão com o BD!");
-            Logger.getLogger(frmPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(frmTodosItens.class.getName()).log(Level.SEVERE, null, ex);
         }
-    }
-
-    
-    public class CustomRenderer extends JLabel implements TableCellRenderer {
-
-        DefaultTableCellRenderer renderer = new DefaultTableCellRenderer();
-
-        public Component getTableCellRendererComponent(JTable table, Object value,
-                boolean isSelected, boolean hasFocus, int row, int column) {
-
-            Component c = renderer.getTableCellRendererComponent(
-                    table, value, isSelected, hasFocus, row, column);
-
-            if (value != null && (value instanceof Double)) {
-                String s = String.format("%.02f", value);
-                c = renderer.getTableCellRendererComponent(
-                        table, s, isSelected, hasFocus, row, column);
-                ((JLabel) c).setHorizontalAlignment(SwingConstants.RIGHT);
-            }
-            return c;
-        }
-    }
         
+        this.categoriaFiltro = categoriaSelec;
+        initComponents();
+        tblItem.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        modelo = (DefaultTableModel) tblItem.getModel();
+
+        // Populate category combo dynamically
+        cbCategorias.setModel(new DefaultComboBoxModel<>(new String[]{
+            Categoria.ARMARIO.getValor(),
+            Categoria.GELADEIRA.getValor()
+        }));
+        cbCategorias.setSelectedItem(categoriaFiltro.getValor());
+
+        preencherTabela();
+        attTituloIcone(categoriaFiltro);
+
+        cbCategorias.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                String selecionado = (String) cbCategorias.getSelectedItem();
+                categoriaFiltro = Categoria.fromString(selecionado);
+                preencherTabela();
+                attTituloIcone(categoriaFiltro);
+            }
+        });
+    } 
     
     private void preencherTabela() {
-        modelo.getDataVector().clear();
+        modelo.setRowCount(0);
         try {
             for (Item item : itemDAO.listar()) {
-
-                modelo.addRow(new Object[]{
-                    item.getId(),
-                    item.getNome(),
-                    item.getCategoria(),
-                    item.getQuantidade(),
-                    item.getValidade()
-                });
+                if (item.getCategoria() == categoriaFiltro) {
+                    modelo.addRow(new Object[]{
+                        item.getId(),
+                        item.getNome(),
+                        item.getCategoria(),
+                        item.getQuantidade(),
+                        item.getValidade()
+                    });
+                }
             }
         } catch (Exception e) {
-            throw e;
+            //throw e;
+            JOptionPane.showMessageDialog(this, "Erro ao atualizar tabela: " + e.getMessage());
+            e.printStackTrace();
         }
     }
+    
+    public void attTituloIcone(Categoria categoria) {
+        setTitle("Itens em " + categoriaFiltro.getValor() + ":");
+
+        // Change the window icon dynamically
+        String iconePath;
+        switch (categoriaFiltro) {
+            case ARMARIO -> iconePath = "/recurso/cabinet.png";
+            case GELADEIRA -> iconePath = "/recurso/fridge.png";
+            default -> iconePath = "/recurso/icone.png";
+        }
+        setIconImage(new javax.swing.ImageIcon(getClass().getResource(iconePath)).getImage());
+    }
+    
+    
     private void apagar() {
         try {
             Integer id = (Integer) modelo.getValueAt(tblItem.getSelectedRow(), 0);
@@ -93,20 +107,20 @@ import modelo.Categoria;
 
             if (linha > 0) {
                 modelo.removeRow(tblItem.getSelectedRow());
-                JOptionPane.showMessageDialog(this, "Item excluído com sucesso!");
+                JOptionPane.showMessageDialog(this, "Item retirado de " + categoriaFiltro.getValor() + " com sucesso!");
             } else {
-                JOptionPane.showMessageDialog(this, "Erro ao excluir.");
+                JOptionPane.showMessageDialog(this, "Erro ao retirar item de " + categoriaFiltro.getValor());
             }
 
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Por favor, selecionar uma linha da tabela");
+            JOptionPane.showMessageDialog(this, "Por favor, selecione um item para retirar.");
             }
     }
     
     private void editar() {
         int selectedRow = tblItem.getSelectedRow();
         if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Por favor, selecione uma linha da tabela.");
+            JOptionPane.showMessageDialog(this, "Por favor, selecione um item para editar.");
             return;
         }
 
@@ -149,8 +163,9 @@ import modelo.Categoria;
         btnEditar = new javax.swing.JButton();
         btnRemover = new javax.swing.JButton();
         lblMensagem = new javax.swing.JLabel();
+        cbCategorias = new javax.swing.JComboBox<>();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusGained(java.awt.event.FocusEvent evt) {
                 formFocusGained(evt);
@@ -201,40 +216,48 @@ import modelo.Categoria;
         lblMensagem.setForeground(new java.awt.Color(204, 0, 51));
         lblMensagem.setText(" ");
 
+        cbCategorias.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "ARMARIO", "GELADEIRA", " " }));
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(81, 81, 81)
-                .addComponent(btnAdicionar, javax.swing.GroupLayout.PREFERRED_SIZE, 81, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(132, 132, 132)
-                .addComponent(btnEditar)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 132, Short.MAX_VALUE)
-                .addComponent(btnRemover, javax.swing.GroupLayout.PREFERRED_SIZE, 77, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(81, 81, 81))
-            .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane1)
-                .addContainerGap())
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(lblMensagem, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(lblMensagem, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 568, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(cbCategorias, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(btnEditar)
+                                    .addComponent(btnAdicionar, javax.swing.GroupLayout.PREFERRED_SIZE, 81, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addGap(0, 0, Short.MAX_VALUE)
+                                .addComponent(btnRemover, javax.swing.GroupLayout.PREFERRED_SIZE, 77, javax.swing.GroupLayout.PREFERRED_SIZE)))))
                 .addContainerGap())
         );
 
-        layout.linkSize(javax.swing.SwingConstants.HORIZONTAL, new java.awt.Component[] {btnAdicionar, btnEditar, btnRemover});
+        layout.linkSize(javax.swing.SwingConstants.HORIZONTAL, new java.awt.Component[] {btnAdicionar, btnEditar, btnRemover, cbCategorias});
 
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 291, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(btnAdicionar)
-                    .addComponent(btnEditar)
-                    .addComponent(btnRemover))
+                .addGap(25, 25, 25)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(cbCategorias, javax.swing.GroupLayout.PREFERRED_SIZE, 22, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(btnAdicionar)
+                        .addGap(55, 55, 55)
+                        .addComponent(btnEditar)
+                        .addGap(55, 55, 55)
+                        .addComponent(btnRemover))
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 326, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(lblMensagem, javax.swing.GroupLayout.PREFERRED_SIZE, 10, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -280,20 +303,21 @@ import modelo.Categoria;
                 }
             }
         } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(frmPrincipal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(frmCategorizado.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(frmPrincipal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(frmCategorizado.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(frmPrincipal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(frmCategorizado.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(frmPrincipal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(frmCategorizado.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
         //</editor-fold>
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new frmPrincipal().setVisible(true);
+                new frmCategorizado().setVisible(true);
             }
         });
     }
@@ -302,6 +326,7 @@ import modelo.Categoria;
     private javax.swing.JButton btnAdicionar;
     private javax.swing.JButton btnEditar;
     private javax.swing.JButton btnRemover;
+    private javax.swing.JComboBox<String> cbCategorias;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JLabel lblMensagem;
     private javax.swing.JTable tblItem;

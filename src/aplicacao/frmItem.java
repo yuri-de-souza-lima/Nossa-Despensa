@@ -4,10 +4,6 @@
  */
 package aplicacao;
 
-/**
- *
- * @author Y
- */
 import modelo.Categoria;
 import modelo.Item;
 import dao.ItemDAO;
@@ -16,6 +12,10 @@ import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import java.util.Date;
 
+/**
+ *
+ * @author Y
+ */
 public class frmItem extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(frmItem.class.getName());
